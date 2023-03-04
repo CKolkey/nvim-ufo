@@ -27,32 +27,25 @@ local render = require('ufo.render')
 local Decorator = {}
 
 local function frameKey()
-    return table.concat({ fn.line("w0") - 1, fn.line("w$"), api.nvim_buf_get_changedtick(0) })
+    return table.concat({ fn.line("w0") - 1, fn.line("w$") })
 end
 
-local collection
-local bufnrSet
+local collection = {}
+local bufnrSet = {}
 local handlerErrorMsg
 local lastFrameKey = frameKey()
 
 ---@diagnostic disable-next-line: unused-local
 local function onStart(name, tick)
-    local thisFrameKey = frameKey()
-    if lastFrameKey == thisFrameKey then
+    if lastFrameKey == frameKey() then
         return false
     end
-
-    lastFrameKey = thisFrameKey
-    collection = {}
-    bufnrSet = {}
 end
 
 ---@diagnostic disable-next-line: unused-local
 local function onWin(name, winid, bufnr, topRow, botRow)
-    if api.nvim_get_current_buf() == bufnr then
-        if api.nvim_get_current_win() ~= winid then
-            return false
-        end
+    if api.nvim_get_current_buf() == bufnr and api.nvim_get_current_win() ~= winid then
+        return false
     end
     local fb = fold.get(bufnr)
     if bufnrSet[bufnr] or not fb or fb.foldedLineCount == 0 and not vim.wo[winid].foldenable then
@@ -141,8 +134,7 @@ local function onEnd(name, tick)
                         end
                     end
                 end
-                local cursor = api.nvim_win_get_cursor(winid)
-                local curLnum = cursor[1]
+                local curLnum, _ = unpack(api.nvim_win_get_cursor(winid))
                 if fb:lineIsClosed(curLnum) then
                     self:setCursorFoldedLineHighlight(bufnr, winid, curLnum)
                 else
@@ -155,8 +147,10 @@ local function onEnd(name, tick)
     if needRedraw then
         cmd('redraw')
     end
-    collection = nil
-    bufnrSet = nil
+
+    lastFrameKey = frameKey()
+    collection = {}
+    bufnrSet = {}
     self.lastWinid = self.curWinid
 end
 
